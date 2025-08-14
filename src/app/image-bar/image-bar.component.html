@@ -1,0 +1,34 @@
+<div class="action-bar" (mousedown)="$event.preventDefault()">
+
+  <div class="replacingImage" data-name="Replace" (click)="triggerFileReplace()">
+    <div class="svg-default">
+      <svg width="40" height="32">
+        <use xlink:href="assets/icons.svg#replace-icon"></use>
+      </svg>
+    </div>
+  </div>
+
+  <svg id="dash7" width="1" height="12">
+    <use xlink:href="assets/icons.svg#dash-icon"></use>
+  </svg>
+
+  <div class="linking" data-name="Insert Link" (click)="addLinkToImage()">
+    <div class="svg-default">
+      <svg width="44" height="32">
+        <use xlink:href="assets/icons.svg#link-icon"></use>
+      </svg>
+    </div>
+  </div>
+
+  <svg id="dash8" width="1" height="12">
+    <use xlink:href="assets/icons.svg#dash-icon"></use>
+  </svg>
+
+  <div class="deleting" data-name="Delete" (click)="onDeleteClick()">
+    <div class="svg-default">
+      <svg width="44" height="32">
+        <use xlink:href="assets/icons.svg#delete-icon"></use>
+      </svg>
+    </div>
+  </div>
+</div>
