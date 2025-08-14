@@ -20,7 +20,7 @@
         </ng-container>
       </div>
 
-      <div class="size-dropdown" *ngIf="isTextSizeDropdownOpen">
+      <div class="size-dropdown">
         <div class="size-option" data-size="large" data-name="Large" (click)="changeFontSize('large',$event)">
           <svg class="svg-default" width="32" height="32">
             <use xlink:href="assets/icons.svg#text-size-large"></use>
@@ -85,7 +85,7 @@
         </ng-container>
       </div>
 
-      <div class="alignment-dropdown" *ngIf="isAlignmentDropdownOpen">
+      <div class="alignment-dropdown">
         <div class="align-option" data-align="left" data-name="Left" (click)="changeTextAlign('left', $event)">
           <svg class="svg-default" width="32" height="32">
             <use xlink:href="assets/icons.svg#align-left"></use>
@@ -132,7 +132,7 @@
         </ng-container>
       </div>
 
-      <div class="vertical-align-dropdown" *ngIf="isVerticalAlignmentDropdownOpen">
+      <div class="vertical-align-dropdown">
         <div class="v-align-option" data-valign="top" data-name="Top" (click)="changeVerticalAlign('top', $event)">
           <svg class="svg-default" width="32" height="32">
             <use xlink:href="assets/icons.svg#valign-top"></use>
@@ -167,8 +167,8 @@
   <input
     *ngIf="showTextColorInput"
     type="color"
-    [ngModel]="selectedColor"
-    (ngModelChange)="changeTextColor($event)"
+    [(ngModel)]="selectedColor"
+    (change)="changeTextColor(selectedColor, $event)"
     class="text-color-input"
   />
 
@@ -181,8 +181,8 @@
   <input
     *ngIf="showBackColorInput"
     type="color"
-    [ngModel]="selectedBackgroundColor"
-    (ngModelChange)="changeBackgroundColor($event)"
+    [(ngModel)]="selectedBackgroundColor"
+    (change)="changeBackgroundColor(selectedBackgroundColor, $event)"
     class="body-color-input"
   />
 
@@ -195,8 +195,8 @@
   <input
     *ngIf="showBorderColorInput"
     type="color"
-    [ngModel]="selectedBorderColor"
-    (ngModelChange)="changeBorderColor($event)"
+    [(ngModel)]="selectedBorderColor"
+    (change)="changeBorderColor(selectedBorderColor, $event)"
     class="border-color-input"
   />
 

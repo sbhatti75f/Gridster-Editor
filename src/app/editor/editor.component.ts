@@ -2,36 +2,33 @@ import {
   AfterViewInit,
   Component,
   ElementRef,
-  OnDestroy,
   Renderer2,
-  ViewChild
+  ViewChild,
 } from '@angular/core';
 import { GridsterItem } from 'angular-gridster2';
 import { contentType } from '../enums/enums';
-import { EditorCommunicationService, EditorData } from './editor-communication.service';
-import { Subscription } from 'rxjs';
+import { EditorStateService } from './editor-state.service';
+import { GridsterWrapperComponent } from '../gridster-wrapper/gridster-wrapper.component';
 
 @Component({
   selector: 'app-editor',
   templateUrl: './editor.component.html',
   styleUrls: ['./editor.component.scss']
 })
-export class EditorComponent implements AfterViewInit, OnDestroy {
+export class EditorComponent implements AfterViewInit {
   @ViewChild('contextMenu') contextMenu!: ElementRef;
   @ViewChild('editorWrapper') editorWrapper!: ElementRef;
   @ViewChild('imageInput') imageInput!: ElementRef<HTMLInputElement>;
+  @ViewChild(GridsterWrapperComponent) gridsterWrapper!: GridsterWrapperComponent;
 
   viewMode: contentType | null = null;
   imageUrlMap: { [id: number]: string } = {};
   items: (GridsterItem & { type: 'text' | 'image'; id: number; content?: string })[] = [];
   
   private replacingImageId: number | null = null;
-  private subscriptions = new Subscription();
+  private readonly STORAGE_KEY = 'editor_saved_data';
 
-  constructor(
-    private renderer: Renderer2,
-    private editorCommService: EditorCommunicationService
-  ) {}
+  constructor(private renderer: Renderer2, private editorStateService: EditorStateService) {}
 
   ngAfterViewInit(): void {
     this.renderer.listen('document', 'contextmenu', (e: MouseEvent) => {
@@ -45,177 +42,159 @@ export class EditorComponent implements AfterViewInit, OnDestroy {
     this.renderer.listen('document', 'click', () => {
       this.contextMenu.nativeElement.classList.add('hidden');
     });
-
-    this.subscriptions.add(
-      this.editorCommService.restoreState$.subscribe(data => {
-        this.restoreState(data);
-      })
-    );
   }
+  
+  addText(): void {
+    this.viewMode = contentType.Text;
+    this.editorWrapper.nativeElement.classList.remove('hidden');
+    this.contextMenu.nativeElement.classList.add('hidden');
+    const newId = Date.now() + Math.floor(Math.random() * 1000);
 
-  ngOnDestroy(): void {
-    this.subscriptions.unsubscribe();
-  }
-
-  private findNextAvailableX(): number {
     let maxX = 0;
     for (const item of this.items) {
-      if (item.y === 1) {
+      if (item.y === 1) {  // check row 1 now
         const rightEdge = item.x + item.cols;
         if (rightEdge > maxX) {
           maxX = rightEdge;
         }
       }
     }
-    return maxX;
-  }
 
-  private addItem(type: contentType): void {
-    this.viewMode = type; 
-    this.editorWrapper.nativeElement.classList.remove('hidden');
-    this.contextMenu.nativeElement.classList.add('hidden');
-    
-    if (type === contentType.Image && !this.replacingImageId) {
-      // Clear the input value before triggering file selection
-      this.clearFileInput();
-      this.imageInput.nativeElement.click();
-    } else {
-      const newId = Date.now() + Math.floor(Math.random() * 1000);
-      this.items.push({
-        x: this.findNextAvailableX(),
-        y: 1,
-        cols: 1,
-        rows: 1,
-        type: type, 
-        id: newId,
-        content: type === contentType.Text ? '' : undefined
-      });
-    }
-  }
-
-  addText(): void {
-    this.addItem(contentType.Text);
+    this.items.push({
+      x: maxX,
+      y: 1,
+      cols: 1,
+      rows: 1,
+      type: 'text',
+      id: newId,
+      content: '' // Initialize with empty content
+    });
   }
 
   addImage(): void {
-    console.log('Add image clicked'); // Debug log
-    this.addItem(contentType.Image);
-  }
+    this.viewMode = contentType.Image;
+    this.editorWrapper.nativeElement.classList.remove('hidden');
+    this.contextMenu.nativeElement.classList.add('hidden');
 
-  replaceImage(id: number): void {
-    console.log('Replace image for ID:', id); // Debug log
-    this.replacingImageId = id;
-    // Clear the input value before triggering file selection
-    this.clearFileInput();
-    this.imageInput.nativeElement.click();
-  }
-
-  // Helper method to clear file input
-  private clearFileInput(): void {
-    if (this.imageInput?.nativeElement) {
-      this.imageInput.nativeElement.value = '';
-      console.log('File input cleared'); // Debug log
-    }
+    this.imageInput.nativeElement.click(); 
   }
   
   onImageSelected(event: Event): void {
-    console.log('Image selection event triggered'); // Debug log
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    
-    if (!file) {
-      console.log('No file selected'); // Debug log
-      return;
-    }
+    if (!file) return;
 
-    console.log('File selected:', file.name, 'Size:', file.size); // Debug log
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert(`File size exceeds 5MB limit.`);
-      this.clearFileInput();
+    // Check file size (limit: 5MB)
+    const maxSizeMB = 5;
+    const maxSizeBytes = maxSizeMB * 1024 * 1024;
+    if (file.size > maxSizeBytes) {
+      alert(`File size exceeds ${maxSizeMB}MB limit. Please choose a smaller image.`);
+      this.imageInput.nativeElement.value = '';
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
-      console.log('File read successfully, data URL length:', dataUrl.length); // Debug log
       
       if (this.replacingImageId !== null) {
-        console.log('Replacing image with ID:', this.replacingImageId); // Debug log
+        // Replace existing image
         this.imageUrlMap[this.replacingImageId] = dataUrl;
-        this.replacingImageId = null;
+        this.replacingImageId = null; // Reset
       } else {
+        // Add new image (existing logic)
         const newId = Date.now() + Math.floor(Math.random() * 1000);
-        console.log('Creating new image item with ID:', newId); // Debug log
+
+        let maxX = 0;
+        for (const item of this.items) {
+          if (item.y === 1) {  
+            const rightEdge = item.x + item.cols;
+            if (rightEdge > maxX) {
+              maxX = rightEdge;
+            }
+          }
+        }
+
         this.items.push({
-          x: this.findNextAvailableX(), 
-          y: 1, 
-          cols: 1, 
-          rows: 1, 
-          type: 'image', 
+          x: maxX,
+          y: 1,
+          cols: 1,
+          rows: 1,
+          type: 'image',
           id: newId
         });
         this.imageUrlMap[newId] = dataUrl;
-        console.log('Image added to items array. Total items:', this.items.length); // Debug log
       }
-      
-      // Clear the input after processing
-      this.clearFileInput();
-    };
 
-    reader.onerror = (error) => {
-      console.error('Error reading file:', error); // Debug log
-      this.clearFileInput();
+      // Clear input
+      this.imageInput.nativeElement.value = '';
     };
 
     reader.readAsDataURL(file);
   }
 
   saveChanges(): void {
-    const event = new CustomEvent('requestSaveData', {
-      detail: (data: Partial<EditorData>) => {
-        const editorData: EditorData = {
-          gridItems: this.items,
-          imageUrls: this.imageUrlMap,
-          textStyles: data.textStyles || {},
-          imageLinks: data.imageLinks || {}
-        };
-        this.editorCommService.saveState(editorData);
-      }
-    });
-    document.dispatchEvent(event);
+    // Get the current state directly from the GridsterWrapper component
+    const { textStyles, imageLinks } = this.gridsterWrapper.getCurrentState();
+
+    const editorData = {
+      gridItems: this.items,
+      imageUrls: this.imageUrlMap,
+      textStyles: textStyles,
+      imageLinks: imageLinks
+    };
+
+    localStorage.setItem(this.STORAGE_KEY, JSON.stringify(editorData));
+    alert('Editor content and images saved!');
   }
 
   discardChanges(): void {
-    if (confirm('Are you sure you want to discard unsaved changes?')) {
-      this.editorCommService.requestRestoreState();
+    const savedData = localStorage.getItem(this.STORAGE_KEY);
+    if (!savedData) {
+      alert('No saved data found.');
+      return;
     }
-  }
-  
-  private restoreState(data: EditorData): void {
-    this.items = data.gridItems || [];
-    this.imageUrlMap = data.imageUrls || {};
+    if (!confirm('Are you sure you want to revert to the last saved version?')) return;
 
-    setTimeout(() => {
-      const restoreEvent = new CustomEvent('restoreInternalState', { detail: data });
-      document.dispatchEvent(restoreEvent);
+    try {
+      const parsedData = JSON.parse(savedData);
+      this.items = parsedData.gridItems || [];
+      this.imageUrlMap = parsedData.imageUrls || {};
+
+      // Use the service to broadcast the state to restore
+      this.editorStateService.restoreState(parsedData.textStyles || {}, parsedData.imageLinks || {});
+
       this.editorWrapper.nativeElement.classList.add('hidden');
-      alert('Editor has been restored to the last saved state.');
-    }, 100);
+      alert('Editor has been restored.');
+
+    } catch (err) {
+      console.error('Failed to parse saved data:', err);
+      alert('Failed to restore the saved state.');
+    }
   }
 
   deleteItem(id: number): void {
+    // Find the index of the item to delete
     const index = this.items.findIndex(item => item.id === id);
+    
     if (index !== -1) {
+      // If it's an image item, remove from imageUrlMap
       if (this.items[index].type === 'image') {
-        delete this.imageUrlMap[id];
+        const { [id]: _, ...updatedImageUrls } = this.imageUrlMap;
+        this.imageUrlMap = updatedImageUrls;
       }
-      this.items.splice(index, 1);
+      
+      // Remove item using immutable operation
+      this.items = this.items.filter(item => item.id !== id);
     }
   }
 
   onImageUpdated(updatedMap: { [id: number]: string }): void {
     this.imageUrlMap = { ...updatedMap };
+  }
+
+  replaceImage(id: number): void {
+    this.replacingImageId = id;
+    this.imageInput.nativeElement.click();
   }
 }

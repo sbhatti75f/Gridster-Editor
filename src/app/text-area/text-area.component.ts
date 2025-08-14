@@ -8,15 +8,13 @@ import {
   EventEmitter,
   Input,
   OnChanges,
-  SimpleChanges,
-  ChangeDetectionStrategy
+  SimpleChanges
 } from '@angular/core';
 
 @Component({
   selector: 'app-text-area',
   templateUrl: './text-area.component.html',
-  styleUrls: ['./text-area.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush
+  styleUrls: ['./text-area.component.scss']
 })
 export class TextAreaComponent implements AfterViewInit, OnChanges {
   @ViewChild('editableDiv') editableDiv!: ElementRef;
@@ -24,110 +22,52 @@ export class TextAreaComponent implements AfterViewInit, OnChanges {
   @Output() editableRef = new EventEmitter<ElementRef>();
   @Input() styleState: any = {}; 
 
-  private removeListeners: (() => void)[] = [];
-
   constructor(private renderer: Renderer2) {}
 
   ngAfterViewInit(): void {
-    this.editableDiv.nativeElement.innerHTML = this.styleState.content || '';
-    this.applyStyles();
+    this.setupFocusListeners();
+    this.setupBlurCleaner();
     this.editableRef.emit(this.editableDiv);
-
-    // Add multiple event listeners to ensure focus is captured
-    this.removeListeners.push(
-      this.renderer.listen(this.editableDiv.nativeElement, 'focus', (event) => {
-        console.log('Text area focused'); // Debug log
-        this.focusChanged.emit(true);
-      })
-    );
-
-    this.removeListeners.push(
-      this.renderer.listen(this.editableDiv.nativeElement, 'blur', (event) => {
-        console.log('Text area blurred'); // Debug log
-        this.focusChanged.emit(false);
-      })
-    );
-
-    // Additional click listener to ensure focus is triggered
-    this.removeListeners.push(
-      this.renderer.listen(this.editableDiv.nativeElement, 'click', (event) => {
-        console.log('Text area clicked'); // Debug log
-        this.editableDiv.nativeElement.focus();
-        this.focusChanged.emit(true);
-      })
-    );
-
-    // Mousedown listener to capture early interaction
-    this.removeListeners.push(
-      this.renderer.listen(this.editableDiv.nativeElement, 'mousedown', (event) => {
-        console.log('Text area mousedown'); // Debug log
-        // Small delay to ensure focus happens after mousedown
-        setTimeout(() => {
-          this.editableDiv.nativeElement.focus();
-          this.focusChanged.emit(true);
-        }, 10);
-      })
-    );
-  }
-
-  ngOnDestroy(): void {
-    // Clean up event listeners
-    this.removeListeners.forEach(remove => remove());
+    this.applyStyleState(); 
   }
 
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['styleState'] && this.editableDiv) {
-      this.applyStyles();
+      this.applyStyleState(); 
     }
   }
 
-  private applyStyles(): void {
+  private applyStyleState(): void {
     const el = this.editableDiv?.nativeElement;
     if (!el || !this.styleState) return;
 
-    const wrapper = el.parentElement;
-    if(wrapper) {
-        this.renderer.setStyle(wrapper, 'justify-content', this.convertVerticalAlignToFlex(this.styleState.verticalAlign));
-    }
-    
+    // Apply all relevant styles
     this.renderer.setStyle(el, 'font-weight', this.styleState.fontWeight || 'normal');
     this.renderer.setStyle(el, 'font-style', this.styleState.fontStyle || 'normal');
-    this.renderer.setStyle(el, 'font-size', this.convertSizeToPx(this.styleState.fontSize));
+    this.renderer.setStyle(el, 'font-size', this.styleState.fontSize || '16px');
     this.renderer.setStyle(el, 'text-align', this.styleState.textAlign || 'left');
     this.renderer.setStyle(el, 'color', this.styleState.color || '#000000');
-    
-    const container = wrapper?.parentElement;
-    if(container) {
-        this.renderer.setStyle(container, 'background-color', this.styleState.backgroundColor || 'transparent');
-        this.renderer.setStyle(container, 'border-color', this.styleState.borderColor || '#cccccc');
-        this.renderer.setStyle(container, 'border-style', this.styleState.borderColor ? 'solid' : 'none');
-        this.renderer.setStyle(container, 'border-width', this.styleState.borderColor ? '1px' : '0');
-    }
-  }
-  
-  private convertSizeToPx(size: string): string {
-    const map: { [key: string]: string } = { small: '12px', medium: '16px', large: '24px', xlarge: '32px' };
-    return map[size] || '16px';
+    this.renderer.setStyle(el, 'background-color', this.styleState.backgroundColor || 'transparent');
+    this.renderer.setStyle(el, 'border-color', this.styleState.borderColor || '#cccccc');
   }
 
-  private convertVerticalAlignToFlex(align: string): string {
-    const map: { [key: string]: string } = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
-    return map[align] || 'flex-start';
+  private setupFocusListeners(): void {
+    this.renderer.listen(this.editableDiv.nativeElement, 'focus', () => {
+      this.focusChanged.emit(true);
+    });
+    this.renderer.listen(this.editableDiv.nativeElement, 'blur', () => {
+      this.focusChanged.emit(false);
+    });
   }
 
-  // Add these methods to handle template events
-  onFocus(event: Event): void {
-    console.log('Template focus event triggered'); // Debug log
-    this.focusChanged.emit(true);
-  }
-
-  onBlur(event: Event): void {
-    console.log('Template blur event triggered'); // Debug log
-    this.focusChanged.emit(false);
-  }
-
-  onClick(event: Event): void {
-    console.log('Template click event triggered'); // Debug log
-    this.focusChanged.emit(true);
+  private setupBlurCleaner(): void {
+    this.renderer.listen(this.editableDiv.nativeElement, 'blur', () => {
+      const spans = this.editableDiv.nativeElement.querySelectorAll('span');
+      spans.forEach((span: HTMLElement) => {
+        if (!span.innerHTML.trim() || span.textContent === '\u200B') {
+          span.remove();
+        }
+      });
+    });
   }
 }

@@ -2,35 +2,43 @@ import {
   Component,
   Input,
   ElementRef,
-  AfterViewInit,
   OnDestroy,
   Output,
   EventEmitter,
-  ChangeDetectionStrategy,
-  ChangeDetectorRef,
+  OnInit,
 } from '@angular/core';
 import { GridsterConfig, GridsterItem } from 'angular-gridster2';
-import { EditorData } from '../editor/editor-communication.service';
+import { EditorStateService, StyleState } from '../editor/editor-state.service';
+import { Subscription } from 'rxjs';
+
+// A consolidated state structure for each grid item
+interface GridItemState {
+  style?: StyleState;
+  elementRef?: ElementRef;
+  imageLink?: string;
+}
+
+// Default state constant
+const DEFAULT_STYLE_STATE: StyleState = {
+  fontWeight: 'normal', fontStyle: 'normal', fontSize: 'medium', textAlign: 'left',
+  verticalAlign: 'top', color: '#000000', backgroundColor: '#ffffff', borderColor: '#cccccc',
+};
 
 @Component({
   selector: 'app-gridster-wrapper',
   templateUrl: './gridster-wrapper.component.html',
   styleUrls: ['./gridster-wrapper.component.scss'],
-  changeDetection: ChangeDetectionStrategy.OnPush,
 })
-export class GridsterWrapperComponent implements AfterViewInit, OnDestroy {
+export class GridsterWrapperComponent implements OnInit, OnDestroy {
   @Input() items: (GridsterItem & { type: 'text' | 'image'; id: number })[] = [];
   @Input() imageUrlMap: { [id: number]: string } = {};
+
   @Output() deleteItemRequested = new EventEmitter<number>();
   @Output() replaceImageRequested = new EventEmitter<number>();
   @Output() imageUrlMapChanged = new EventEmitter<{ [id: number]: string }>();
 
-  imageLinkMap: { [id: number]: string } = {};
-  imageElementRefMap: { [id: number]: ElementRef } = {};
-  editableDivMap: { [id: number]: ElementRef } = {};
-  styleStateMap: { [id: number]: any } = {};
-  focusedId: number | null = null;
-  maxZIndex = 1000;
+  // Single map holding all state for each item
+  itemStateMap: { [id: number]: GridItemState } = {};
 
   options: GridsterConfig = {
     draggable: { enabled: true, ignoreContent: true },
@@ -40,123 +48,78 @@ export class GridsterWrapperComponent implements AfterViewInit, OnDestroy {
     minRows: 6,
   };
 
-  private eventListeners: { type: string, handler: (event: any) => void }[] = [];
+  focusedId: number | null = null;
+  private maxZIndex = 1000;
+  private stateSubscription!: Subscription;
 
-  constructor(private hostRef: ElementRef, private cdr: ChangeDetectorRef) {}
+  constructor(private editorStateService: EditorStateService) {}
 
-  ngAfterViewInit(): void {
-    this.addDocumentListener('click', (event: MouseEvent) => {
-      if (!this.hostRef.nativeElement.contains(event.target)) {
-        this.focusedId = null;
-        this.cdr.detectChanges(); // Use detectChanges instead of markForCheck
-      }
-    });
-
-    this.addDocumentListener('requestSaveData', (event: CustomEvent) => {
-      const callback = event.detail;
-      if (typeof callback === 'function') {
-        Object.keys(this.styleStateMap).forEach(idStr => {
-            const id = parseInt(idStr, 10);
-            const editableDiv = this.editableDivMap[id]?.nativeElement;
-            if(editableDiv) {
-                this.styleStateMap[id].content = editableDiv.innerHTML;
-            }
-        });
-
-        callback({
-          textStyles: this.styleStateMap,
-          imageLinks: this.imageLinkMap,
-        });
-      }
-    });
-    
-    this.addDocumentListener('restoreInternalState', (event: CustomEvent<EditorData>) => {
-      const data = event.detail;
-      this.styleStateMap = data.textStyles || {};
-      this.imageLinkMap = data.imageLinks || {};
-      setTimeout(() => {
-          Object.keys(this.styleStateMap).forEach(idStr => {
-              const id = parseInt(idStr, 10);
-              const editableDiv = this.editableDivMap[id]?.nativeElement;
-              if(editableDiv) {
-                  editableDiv.innerHTML = this.styleStateMap[id].content || '';
-              }
-          });
-          this.cdr.detectChanges();
-      });
+  ngOnInit(): void {
+    // Subscribe to state changes from the service
+    this.stateSubscription = this.editorStateService.restoreState$.subscribe(state => {
+      this.restoreAllStates(state.textStyles, state.imageLinks);
     });
   }
 
-  private addDocumentListener(type: string, handler: (event: any) => void): void {
-    document.addEventListener(type, handler);
-    this.eventListeners.push({ type, handler });
-  }
-  
   ngOnDestroy(): void {
-    this.eventListeners.forEach(listener => {
-      document.removeEventListener(listener.type, listener.handler);
-    });
+    this.stateSubscription?.unsubscribe();
   }
 
-  getItemZIndex(itemId: number): number {
-    return this.focusedId === itemId ? this.maxZIndex : 1;
-  }
+  // This can be called by a parent to get the current state for saving
+  public getCurrentState(): { textStyles: { [id: number]: any }, imageLinks: { [id: number]: string } } {
+    const textStyles: { [id: number]: any } = {};
+    const imageLinks: { [id: number]: string } = {};
 
-  // FIXED: Changed markForCheck to detectChanges to force immediate update
-  onFocusChange(id: number, isFocused: boolean): void {
-    console.log('Focus change:', id, isFocused); // Debug log
-    this.focusedId = isFocused ? id : null;
-    if (isFocused && !this.styleStateMap[id]) {
-      this.styleStateMap[id] = this.getDefaultStyleState();
+    for (const id in this.itemStateMap) {
+      if (this.itemStateMap.hasOwnProperty(id)) {
+        textStyles[id] = this.itemStateMap[id].style || {};
+        if (this.itemStateMap[id].imageLink) {
+          imageLinks[id] = this.itemStateMap[id].imageLink!;
+        }
+      }
     }
-    // Use detectChanges() instead of markForCheck() to force immediate update
-    this.cdr.detectChanges();
+    return { textStyles, imageLinks };
   }
 
-  onStyleChanged(id: number, updatedStyle: any): void {
-    this.styleStateMap[id] = { ...this.styleStateMap[id], ...updatedStyle };
+  // Simplified method to update any part of an item's state
+  updateItemState(id: number, partialState: Partial<GridItemState>) {
+    this.itemStateMap[id] = { ...(this.itemStateMap[id] || {}), ...partialState };
   }
 
-  setEditableDiv(id: number, ref: ElementRef): void {
-    this.editableDivMap[id] = ref;
+  onFocusChange(id: number, isFocused: boolean) {
+    this.focusedId = isFocused ? id : null;
+    // Initialize with default styles on first focus
+    if (isFocused && !this.itemStateMap[id]?.style) {
+      this.updateItemState(id, { style: { ...DEFAULT_STYLE_STATE } });
+    }
   }
 
-  setImageElementRef(id: number, ref: ElementRef): void {
-    this.imageElementRefMap[id] = ref;
+  onStyleChanged(id: number, updatedStyle: any) {
+    this.updateItemState(id, { style: { ...this.itemStateMap[id].style, ...updatedStyle } });
   }
 
-  setImageLink(id: number, link: string): void {
-    this.imageLinkMap[id] = link;
-    this.cdr.detectChanges(); // Changed from markForCheck to detectChanges
-  }
-
-  requestImageReplace(id: number): void {
-    this.replaceImageRequested.emit(id);
-  }
-  
-  handleDelete(id: number): void {
-    delete this.styleStateMap[id];
-    delete this.editableDivMap[id];
+  handleDelete(id: number) {
+    delete this.itemStateMap[id];
     delete this.imageUrlMap[id];
-    delete this.imageElementRefMap[id];
-    delete this.imageLinkMap[id];
     if (this.focusedId === id) {
       this.focusedId = null;
     }
     this.deleteItemRequested.emit(id);
   }
 
-  private getDefaultStyleState(): any {
-    return {
-      fontWeight: 'normal',
-      fontStyle: 'normal',
-      fontSize: 'medium',
-      textAlign: 'left',
-      verticalAlign: 'top',
-      color: '#000000',
-      backgroundColor: '#ffffff',
-      borderColor: '#cccccc',
-      content: ''
-    };
+  getItemZIndex(itemId: number): number {
+    return this.focusedId === itemId ? this.maxZIndex : 1;
+  }
+
+  private restoreAllStates(textStyles: { [id: number]: StyleState }, imageLinks: { [id: number]: string }) {
+    this.itemStateMap = {}; // Reset state
+    Object.keys(textStyles).forEach(idStr => {
+      const id = parseInt(idStr, 10);
+      this.updateItemState(id, { style: textStyles[id] });
+    });
+    Object.keys(imageLinks).forEach(idStr => {
+      const id = parseInt(idStr, 10);
+      this.updateItemState(id, { imageLink: imageLinks[id] });
+    });
   }
 }

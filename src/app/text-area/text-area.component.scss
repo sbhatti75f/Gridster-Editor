@@ -9,6 +9,7 @@
   z-index: 1;
 }
 
+/* The new wrapper is now the flex container */
 .alignment-wrapper {
   display: flex;
   flex-direction: column;
@@ -17,10 +18,11 @@
 }
 
 .editable-div {
+  /* REMOVED height: 100% from here */
   width: 100%; 
   border: none;
   outline: none;
-  background: transparent;
+  background: transparent; /* This must be transparent to see the parent's background */
   font-family: 'Roboto', sans-serif;
   font-weight: 500;
   font-size: 16px; 

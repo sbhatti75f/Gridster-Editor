@@ -1,5 +1,6 @@
 <div class="action-bar" (mousedown)="$event.preventDefault()">
 
+  <!-- Replace Image -->
   <div class="replacingImage" data-name="Replace" (click)="triggerFileReplace()">
     <div class="svg-default">
       <svg width="40" height="32">
@@ -12,6 +13,7 @@
     <use xlink:href="assets/icons.svg#dash-icon"></use>
   </svg>
 
+  <!-- Add Link -->
   <div class="linking" data-name="Insert Link" (click)="addLinkToImage()">
     <div class="svg-default">
       <svg width="44" height="32">
@@ -24,6 +26,7 @@
     <use xlink:href="assets/icons.svg#dash-icon"></use>
   </svg>
 
+  <!-- Delete Image Grid -->
   <div class="deleting" data-name="Delete" (click)="onDeleteClick()">
     <div class="svg-default">
       <svg width="44" height="32">

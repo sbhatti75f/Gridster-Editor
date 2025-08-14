@@ -1,3 +1,4 @@
+<!-- Custom right-click menu -->
 <div id="editor-wrapper" #editorWrapper class="hidden">
   <div class="top-buttons">
     <button class="cancel" (click)="discardChanges()">DISCARD CHANGES</button>
@@ -24,5 +25,7 @@
   [imageUrlMap]="imageUrlMap"
   (imageUrlMapChanged)="onImageUpdated($event)"
   (deleteItemRequested)="deleteItem($event)"
-  (replaceImageRequested)="replaceImage($event)">
+  (replaceImageRequested)="replaceImage($event)"
+  (saveChangesRequested)="saveChanges()"
+  (discardChangesRequested)="discardChanges()">
 </app-gridster-wrapper>

@@ -1,40 +1,40 @@
 <gridster [options]="options" class="gridster-wrapper">
-  <gridster-item *ngFor="let item of items; let i = index" 
+  <gridster-item *ngFor="let item of items; let i = index"
                  [item]="item"
                  [ngClass]="{ 'focused': focusedId === item.id }"
                  [style.z-index]="getItemZIndex(item.id)"
                  [attr.data-text-id]="item.type === 'text' ? item.id : null">
 
     <app-text-area
-      *ngIf="item.type === 'text'" 
-      [styleState]="styleStateMap[item.id]"
-      (editableRef)="setEditableDiv(item.id, $event)" 
+      *ngIf="item.type === 'text'"
+      [styleState]="itemStateMap[item.id]?.style"
+      (editableRef)="updateItemState(item.id, { elementRef: $event })"
       (focusChanged)="onFocusChange(item.id, $event)">
     </app-text-area>
 
     <app-text-bar
       *ngIf="item.type === 'text' && focusedId === item.id"
-      [editableDiv]="editableDivMap[item.id]"
-      [styleState]="styleStateMap[item.id]"
+      [editableDiv]="itemStateMap[item.id]?.elementRef!"
+      [styleState]="itemStateMap[item.id]?.style"
       (styleChanged)="onStyleChanged(item.id, $event)"
-      (deleteClicked)="deleteItemRequested.emit(item.id)"> 
+      (deleteClicked)="handleDelete(item.id)">
     </app-text-bar>
 
     <app-image-area
       *ngIf="item.type === 'image'"
-      [imageId]="item.id" 
+      [imageId]="item.id"
       [imageUrl]="imageUrlMap[item.id]"
-      [imageLink]="imageLinkMap[item.id]"
+      [imageLink]="itemStateMap[item.id]?.imageLink ?? ''"
       (focusChanged)="onFocusChange(item.id, $event)"
-      (imageElementRefOutput)="setImageElementRef($event.id, $event.elementRef)">
+      (imageElementRefOutput)="updateItemState($event.id, { elementRef: $event.elementRef })">
     </app-image-area>
 
     <app-image-bar
       *ngIf="item.type === 'image' && focusedId === item.id"
+      [imageRef]="itemStateMap[item.id]?.elementRef!"
       (deleteClicked)="handleDelete(item.id)"
-      (replaceImageRequested)="requestImageReplace(item.id)"
-      [imageRef]="imageElementRefMap[item.id]"
-      (linkAdded)="setImageLink(item.id, $event)">
+      (replaceImageRequested)="replaceImageRequested.emit(item.id)"
+      (linkAdded)="updateItemState(item.id, { imageLink: $event })">
     </app-image-bar>
 
   </gridster-item>
