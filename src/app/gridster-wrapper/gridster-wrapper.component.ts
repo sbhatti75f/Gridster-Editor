@@ -48,7 +48,7 @@ export class GridsterWrapperComponent implements AfterViewInit, OnDestroy {
     this.addDocumentListener('click', (event: MouseEvent) => {
       if (!this.hostRef.nativeElement.contains(event.target)) {
         this.focusedId = null;
-        this.cdr.markForCheck();
+        this.cdr.detectChanges(); // Use detectChanges instead of markForCheck
       }
     });
 
@@ -102,13 +102,15 @@ export class GridsterWrapperComponent implements AfterViewInit, OnDestroy {
     return this.focusedId === itemId ? this.maxZIndex : 1;
   }
 
-  // FIX: Added this.cdr.markForCheck() to trigger change detection
+  // FIXED: Changed markForCheck to detectChanges to force immediate update
   onFocusChange(id: number, isFocused: boolean): void {
+    console.log('Focus change:', id, isFocused); // Debug log
     this.focusedId = isFocused ? id : null;
     if (isFocused && !this.styleStateMap[id]) {
       this.styleStateMap[id] = this.getDefaultStyleState();
     }
-    this.cdr.markForCheck(); // This tells Angular to update the view
+    // Use detectChanges() instead of markForCheck() to force immediate update
+    this.cdr.detectChanges();
   }
 
   onStyleChanged(id: number, updatedStyle: any): void {
@@ -125,7 +127,7 @@ export class GridsterWrapperComponent implements AfterViewInit, OnDestroy {
 
   setImageLink(id: number, link: string): void {
     this.imageLinkMap[id] = link;
-    this.cdr.markForCheck();
+    this.cdr.detectChanges(); // Changed from markForCheck to detectChanges
   }
 
   requestImageReplace(id: number): void {

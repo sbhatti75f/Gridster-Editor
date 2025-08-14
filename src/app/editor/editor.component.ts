@@ -76,6 +76,8 @@ export class EditorComponent implements AfterViewInit, OnDestroy {
     this.contextMenu.nativeElement.classList.add('hidden');
     
     if (type === contentType.Image && !this.replacingImageId) {
+      // Clear the input value before triggering file selection
+      this.clearFileInput();
       this.imageInput.nativeElement.click();
     } else {
       const newId = Date.now() + Math.floor(Math.random() * 1000);
@@ -96,40 +98,75 @@ export class EditorComponent implements AfterViewInit, OnDestroy {
   }
 
   addImage(): void {
+    console.log('Add image clicked'); // Debug log
     this.addItem(contentType.Image);
   }
 
   replaceImage(id: number): void {
+    console.log('Replace image for ID:', id); // Debug log
     this.replacingImageId = id;
+    // Clear the input value before triggering file selection
+    this.clearFileInput();
     this.imageInput.nativeElement.click();
+  }
+
+  // Helper method to clear file input
+  private clearFileInput(): void {
+    if (this.imageInput?.nativeElement) {
+      this.imageInput.nativeElement.value = '';
+      console.log('File input cleared'); // Debug log
+    }
   }
   
   onImageSelected(event: Event): void {
+    console.log('Image selection event triggered'); // Debug log
     const input = event.target as HTMLInputElement;
     const file = input.files?.[0];
-    if (!file) return;
+    
+    if (!file) {
+      console.log('No file selected'); // Debug log
+      return;
+    }
+
+    console.log('File selected:', file.name, 'Size:', file.size); // Debug log
 
     if (file.size > 5 * 1024 * 1024) {
       alert(`File size exceeds 5MB limit.`);
-      this.imageInput.nativeElement.value = '';
+      this.clearFileInput();
       return;
     }
 
     const reader = new FileReader();
     reader.onload = () => {
       const dataUrl = reader.result as string;
+      console.log('File read successfully, data URL length:', dataUrl.length); // Debug log
       
       if (this.replacingImageId !== null) {
+        console.log('Replacing image with ID:', this.replacingImageId); // Debug log
         this.imageUrlMap[this.replacingImageId] = dataUrl;
         this.replacingImageId = null;
       } else {
         const newId = Date.now() + Math.floor(Math.random() * 1000);
+        console.log('Creating new image item with ID:', newId); // Debug log
         this.items.push({
-          x: this.findNextAvailableX(), y: 1, cols: 1, rows: 1, type: 'image', id: newId
+          x: this.findNextAvailableX(), 
+          y: 1, 
+          cols: 1, 
+          rows: 1, 
+          type: 'image', 
+          id: newId
         });
         this.imageUrlMap[newId] = dataUrl;
+        console.log('Image added to items array. Total items:', this.items.length); // Debug log
       }
-      this.imageInput.nativeElement.value = '';
+      
+      // Clear the input after processing
+      this.clearFileInput();
+    };
+
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error); // Debug log
+      this.clearFileInput();
     };
 
     reader.readAsDataURL(file);

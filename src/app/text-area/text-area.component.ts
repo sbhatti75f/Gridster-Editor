@@ -24,6 +24,8 @@ export class TextAreaComponent implements AfterViewInit, OnChanges {
   @Output() editableRef = new EventEmitter<ElementRef>();
   @Input() styleState: any = {}; 
 
+  private removeListeners: (() => void)[] = [];
+
   constructor(private renderer: Renderer2) {}
 
   ngAfterViewInit(): void {
@@ -31,8 +33,46 @@ export class TextAreaComponent implements AfterViewInit, OnChanges {
     this.applyStyles();
     this.editableRef.emit(this.editableDiv);
 
-    this.renderer.listen(this.editableDiv.nativeElement, 'focus', () => this.focusChanged.emit(true));
-    this.renderer.listen(this.editableDiv.nativeElement, 'blur', () => this.focusChanged.emit(false));
+    // Add multiple event listeners to ensure focus is captured
+    this.removeListeners.push(
+      this.renderer.listen(this.editableDiv.nativeElement, 'focus', (event) => {
+        console.log('Text area focused'); // Debug log
+        this.focusChanged.emit(true);
+      })
+    );
+
+    this.removeListeners.push(
+      this.renderer.listen(this.editableDiv.nativeElement, 'blur', (event) => {
+        console.log('Text area blurred'); // Debug log
+        this.focusChanged.emit(false);
+      })
+    );
+
+    // Additional click listener to ensure focus is triggered
+    this.removeListeners.push(
+      this.renderer.listen(this.editableDiv.nativeElement, 'click', (event) => {
+        console.log('Text area clicked'); // Debug log
+        this.editableDiv.nativeElement.focus();
+        this.focusChanged.emit(true);
+      })
+    );
+
+    // Mousedown listener to capture early interaction
+    this.removeListeners.push(
+      this.renderer.listen(this.editableDiv.nativeElement, 'mousedown', (event) => {
+        console.log('Text area mousedown'); // Debug log
+        // Small delay to ensure focus happens after mousedown
+        setTimeout(() => {
+          this.editableDiv.nativeElement.focus();
+          this.focusChanged.emit(true);
+        }, 10);
+      })
+    );
+  }
+
+  ngOnDestroy(): void {
+    // Clean up event listeners
+    this.removeListeners.forEach(remove => remove());
   }
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -73,5 +113,21 @@ export class TextAreaComponent implements AfterViewInit, OnChanges {
   private convertVerticalAlignToFlex(align: string): string {
     const map: { [key: string]: string } = { top: 'flex-start', middle: 'center', bottom: 'flex-end' };
     return map[align] || 'flex-start';
+  }
+
+  // Add these methods to handle template events
+  onFocus(event: Event): void {
+    console.log('Template focus event triggered'); // Debug log
+    this.focusChanged.emit(true);
+  }
+
+  onBlur(event: Event): void {
+    console.log('Template blur event triggered'); // Debug log
+    this.focusChanged.emit(false);
+  }
+
+  onClick(event: Event): void {
+    console.log('Template click event triggered'); // Debug log
+    this.focusChanged.emit(true);
   }
 }

@@ -1,10 +1,14 @@
 <div class="text-area-container" #textAreaContainer>
-  <div class="alignment-wrapper"> <div
-        class="editable-div"
-        #editableDiv
-        contenteditable="true"
-        tabindex="0"
-        [attr.data-placeholder]="'Type your text here'">
+  <div class="alignment-wrapper">
+    <div
+      class="editable-div"
+      #editableDiv
+      contenteditable="true"
+      tabindex="0"
+      [attr.data-placeholder]="'Type your text here'"
+      (focus)="onFocus($event)"
+      (blur)="onBlur($event)"
+      (click)="onClick($event)">
     </div>
   </div>
 </div>
